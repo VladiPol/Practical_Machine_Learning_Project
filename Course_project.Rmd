@@ -1,0 +1,86 @@
+---
+title: "Pediction of personal activity"
+author: "by Vladimir Poliakov"
+date: "March 16, 2016"
+output: html_document
+subtitle: Coursera Practical Machine Learning Project
+---
+
+## Introduction
+The goal of project was to construct a machine learning algorithm based on the data recorded from several people using Activity Monitors to predict the manner in which they did the exercise. To achieve the goal of project was used the Random Forest algorithm because it automatically selects important variables and is robust to correlated covariates & outliers in general. The accuracy of the prediction was over 99% on the trainig dataset and about 70% on the total data.
+
+## Preprocessing
+```{r}
+library(caret)
+set.seed(123456) # For reproducibile purpose
+```
+
+
+## Load the Data
+```{r}
+trainRaw <- read.csv("pml-training.csv")
+testRaw <- read.csv("pml-testing.csv")
+dim(trainRaw)
+dim(testRaw)
+```
+The training data set contains 19622 observations and 160 variables, while the testing data set contains 20 observations and 160 variables. The goal is to predict the "classe" variable.
+
+## Clean the Data
+First of all the columns that contain NA missing values will be removed.
+```{r}
+trainRaw <- trainRaw[, colSums(is.na(trainRaw)) == 0] 
+testRaw <- testRaw[, colSums(is.na(testRaw)) == 0] 
+```
+Next step, some columns, wich contains time or names in it and also new_window will be removed too, because they do not contribute much to the accelerometer measurements.
+```{r}
+classe <- trainRaw$classe
+
+trainRemove <- grepl("^X|timestamp|window", names(trainRaw))
+trainRaw <- trainRaw[, !trainRemove]
+trainCleaned <- trainRaw[, sapply(trainRaw, is.numeric)]
+
+trainCleaned$classe <- classe
+
+testRemove <- grepl("^X|timestamp|window", names(testRaw))
+testRaw <- testRaw[, !testRemove]
+testCleaned <- testRaw[, sapply(testRaw, is.numeric)]
+
+dim(trainCleaned)
+dim(testCleaned)
+```
+After this action the cleaned training data set contains 19622 observations and 53 variables and the testing data set contains 20 observations and 53 variables. The "classe" variable is in the cleaned training set.
+
+## Slice the data
+After cleaning of data the cleaned training data set was split into a pure training data set (70%) and a validation data set (30%). The validation data set was used to conduct cross validation.
+
+```{r}
+inTrain <- createDataPartition(trainCleaned$classe, p=0.70, list=FALSE)
+trainData <- trainCleaned[inTrain, ]
+testData <- trainCleaned[-inTrain, ]
+```
+
+## Building of the Data Model
+To construct a predictive model for activity recognition was used the Random Forest algorithm because it automatically selects important variables and is robust to correlated covariates & outliers in general. When applying the algorithm was used the 5-fold cross validation.
+```{r}
+controlRf <- trainControl(method="cv", 5)
+modelRf <- train(classe ~ ., data=trainData, method="rf", trControl=controlRf)
+modelRf
+```
+After the model was built, it is necessary to estimate the performance of the model on the validation data set.
+```{r}
+predictRf <- predict(modelRf, testData)
+confusionMatrix(testData$classe, predictRf)
+accuracy <- postResample(predictRf, testData$classe)
+accuracy
+sample_error <- 1 - as.numeric(confusionMatrix(testData$classe, predictRf)$overall[1])
+sample_error
+```
+
+## Conclusion
+The estimated accuracy of the model is 99.30% and the estimated out-of-sample error is 0.69%.
+
+## The Data for the Assigment Submission
+```{r}
+result <- predict(modelRf, testCleaned[, -length(names(testCleaned))])
+result
+```
