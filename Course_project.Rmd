@@ -1,5 +1,5 @@
 ---
-title: "Pediction of personal activity"
+title: "Prediction of personal activity"
 author: "by Vladimir Poliakov"
 date: "March 16, 2016"
 output: html_document
